@@ -1,0 +1,48 @@
+Func GetShellInterfaces()
+  Local $pIFolderView, $pIFolderView2, $pIPersistFolder2, $pIShellFolder, $pPidlFolder, $pPidlRel, $i = 0
+
+  ; IShellView interface
+  $oIShellBrowser.QueryActiveShellView( $pIShellView )
+  $oIShellView = ObjCreateInterface( $pIShellView, $sIID_IShellView, $dtag_IShellView )
+
+  ; IFolderView interface
+  $oIShellView.QueryInterface( $tRIID_IFolderView, $pIFolderView )
+  $oIFolderView = ObjCreateInterface( $pIFolderView, $sIID_IFolderView, $dtag_IFolderView )
+
+  If @OSVersion <> "WIN_XP" Then
+    ; IFolderView2 interface (Vista and later)
+    $oIShellView.QueryInterface( $tRIID_IFolderView2, $pIFolderView2 )
+    $oIFolderView2 = ObjCreateInterface( $pIFolderView2, $sIID_IFolderView2, $dtag_IFolderView2 )
+  EndIf
+
+  ; IPersistFolder2 interface
+  $oIFolderView.GetFolder( $tRIID_IPersistFolder2, $pIPersistFolder2 )
+  $oIPersistFolder2 = ObjCreateInterface( $pIPersistFolder2, $sIID_IPersistFolder2, $dtag_IPersistFolder2 )
+  $oIPersistFolder2.GetCurFolder( $pPidlFolder )
+
+  ; IShellFolder interface
+  If ILIsEqual( $pPidlFolder, $pPidlAbsDesktop ) Then
+    SHGetDesktopFolder( $pIShellFolder )
+  Else
+    Local $pIParentFolder, $oIParentFolder, $pPidlRel
+    SHBindToParent( $pPidlFolder, DllStructGetPtr( $tRIID_IShellFolder ), $pIParentFolder, $pPidlRel )
+    $oIParentFolder = ObjCreateInterface( $pIParentFolder, $sIID_IShellFolder, $dtag_IShellFolder )
+    $oIParentFolder.BindToObject( $pPidlRel, $NULL, $tRIID_IShellFolder, $pIShellFolder )
+  EndIf
+  $oIShellFolder = ObjCreateInterface( $pIShellFolder, $sIID_IShellFolder, $dtag_IShellFolder )
+
+  ; Free memory used by $pPidlFolder
+  _WinAPI_CoTaskMemFree( $pPidlFolder )
+
+  ; Wait for Explorer to refresh
+  $pPidlRel = GetFocusedItem()
+  While Not $pPidlRel And $i < 10
+    Sleep( 25 )
+    $pPidlRel = GetFocusedItem()
+    $i += 1
+  WEnd
+
+  ; Free memory used by $pPidlRel
+  If $pPidlRel Then _
+    _WinAPI_CoTaskMemFree( $pPidlRel )
+EndFunc
